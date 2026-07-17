@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<coverage generated="1784309802886" clover="3.2.0">
+  <project timestamp="1784309802886" name="All files">
+    <metrics statements="27" coveredstatements="27" conditionals="20" coveredconditionals="20" methods="8" coveredmethods="8" elements="55" coveredelements="55" complexity="0" loc="27" ncloc="27" packages="1" files="2" classes="2"/>
+    <file name="index.ts" path="C:\Users\User\Desktop\Road to AU\Agent Community\packages\core\src\index.ts">
+      <metrics statements="0" coveredstatements="0" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
+    </file>
+    <file name="settlement.ts" path="C:\Users\User\Desktop\Road to AU\Agent Community\packages\core\src\settlement.ts">
+      <metrics statements="27" coveredstatements="27" conditionals="20" coveredconditionals="20" methods="8" coveredmethods="8"/>
+      <line num="3" count="1" type="stmt"/>
+      <line num="9" count="1" type="stmt"/>
+      <line num="15" count="1" type="stmt"/>
+      <line num="21" count="1" type="stmt"/>
+      <line num="49" count="10" type="stmt"/>
+      <line num="51" count="10" type="cond" truecount="2" falsecount="0"/>
+      <line num="52" count="9" type="cond" truecount="2" falsecount="0"/>
+      <line num="54" count="16" type="stmt"/>
+      <line num="55" count="14" type="stmt"/>
+      <line num="58" count="8" type="stmt"/>
+      <line num="59" count="14" type="stmt"/>
+      <line num="60" count="8" type="stmt"/>
+      <line num="61" count="18" type="cond" truecount="2" falsecount="0"/>
+      <line num="62" count="14" type="cond" truecount="2" falsecount="0"/>
+      <line num="65" count="8" type="stmt"/>
+      <line num="66" count="8" type="stmt"/>
+      <line num="67" count="13" type="cond" truecount="2" falsecount="0"/>
+      <line num="71" count="8" type="stmt"/>
+      <line num="72" count="14" type="cond" truecount="2" falsecount="0"/>
+      <line num="73" count="10" type="cond" truecount="2" falsecount="0"/>
+      <line num="75" count="8" type="stmt"/>
+      <line num="76" count="8" type="stmt"/>
+      <line num="77" count="14" type="stmt"/>
+      <line num="78" count="14" type="cond" truecount="4" falsecount="0"/>
+      <line num="79" count="14" type="stmt"/>
+      <line num="82" count="14" type="cond" truecount="2" falsecount="0"/>
+      <line num="83" count="8" type="stmt"/>
+    </file>
+  </project>
+</coverage>
