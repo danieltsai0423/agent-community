@@ -3,16 +3,23 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/schema.ts"
+    ".": "./src/schema.ts",
+    "./schema": "./src/schema.ts",
+    "./seed": "./src/seed.ts"
   },
   "scripts": {
+    "generate": "drizzle-kit generate",
+    "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "drizzle-orm": "^0.45.2"
   },
   "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.18.5",
+    "@cloudflare/workers-types": "^5.20260716.1",
     "drizzle-kit": "^0.31.10",
-    "typescript": "^7.0.2"
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
   }
 }
