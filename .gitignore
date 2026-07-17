@@ -5,3 +5,4 @@ dist/
 *.local
 worker-configuration.d.ts
 .DS_Store
+coverage/
