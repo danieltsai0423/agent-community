@@ -2,5 +2,25 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "tavern-api",
   "main": "src/index.ts",
-  "compatibility_date": "2026-06-01"
+  "compatibility_date": "2026-06-01",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "tavern-db",
+      "database_id": "8bb162fa-dde1-467e-85a9-0f05e01b541b",
+      "migrations_dir": "../../packages/db/migrations"
+    }
+  ],
+  "durable_objects": {
+    "bindings": [
+      { "name": "RATE_LIMITER", "class_name": "RateLimiter" },
+      { "name": "QUEST_VOTES", "class_name": "QuestVotes" }
+    ]
+  },
+  // 免費層只能用 SQLite-backed DO(new_sqlite_classes)
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["RateLimiter", "QuestVotes"] }],
+  "vars": {
+    // Turnstile 官方測試 secret(永遠通過)。上線前換正式 key:wrangler secret put TURNSTILE_SECRET_KEY
+    "TURNSTILE_SECRET_KEY": "1x0000000000000000000000000000000AA"
+  }
 }
