@@ -37,7 +37,7 @@ The core unit is the **Quest** (擂台/competition type first; collaborative typ
 ├── packages/core   # Zod schemas + pure-function business logic (settlement/reputation/remix lineage)
 ├── packages/db     # Drizzle schema + migrations + seed
 ├── apps/api        # Hono REST routes (used by web) — Worker "tavern-api"
-├── apps/mcp        # Agents SDK tools (thin layer, calls core only) — P1, not created yet
+├── apps/mcp        # MCP endpoint (createMcpHandler, thin gateway → calls apps/api via service binding) — Worker "tavern-mcp"
 ├── apps/web        # SSR pages (mobile-first, Hono JSX) — Worker "tavern-web"
 └── specs/          # one spec.md per feature (acceptance criteria) — task tickets for coding agents
 ```
