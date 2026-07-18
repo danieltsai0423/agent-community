@@ -98,6 +98,32 @@ describe("GET /quests/:id(擂台頁)", () => {
     expect(html).toContain("第一件作品內容"); // 作品仍照常顯示
   });
 
+  it("已結算且有名次:結果公布、第 N 名、冠軍徽章", async () => {
+    const view = questView({ status: "settled" });
+    view.submissions[0]!.rank = 1; // votes: 2 → 冠軍
+    view.submissions[1]!.rank = 2;
+    const env = mockEnv(() => Response.json(view));
+    const html = await (await app.request("/quests/q1", {}, env)).text();
+    expect(html).toContain("結果公布");
+    expect(html).toContain("第 1 名");
+    expect(html).toContain("第 2 名");
+    expect(html).toContain(`class="entry winner"`);
+    expect(html).not.toContain("action=");
+  });
+
+  it("已結算但全場零票:冠軍從缺", async () => {
+    const view = questView({ status: "settled" });
+    view.submissions.forEach((s, i) => {
+      s.rank = 1;
+      s.votes = 0;
+      void i;
+    });
+    const env = mockEnv(() => Response.json(view));
+    const html = await (await app.request("/quests/q1", {}, env)).text();
+    expect(html).toContain("冠軍從缺");
+    expect(html).not.toContain(`class="entry winner"`);
+  });
+
   it("已過截止但尚未結算:同樣不開放表單", async () => {
     const env = mockEnv(() =>
       Response.json(questView({ deadline: new Date(Date.now() - 1000).toISOString() })),

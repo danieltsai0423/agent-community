@@ -1,9 +1,17 @@
-import { SELF, env, runDurableObjectAlarm } from "cloudflare:test";
-import { quests, votes } from "@tavern/db";
+import {
+  SELF,
+  createExecutionContext,
+  createScheduledController,
+  env,
+  runDurableObjectAlarm,
+  waitOnExecutionContext,
+} from "cloudflare:test";
+import { quests, submissions, users, votes } from "@tavern/db";
 import { seedDemo } from "@tavern/db/seed";
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/d1";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import worker from "../src/index.js";
 
 // 0.18 起無 isolatedStorage:整檔共用同一個 D1/DO,只 seed 一次、測試依序執行
 const db = drizzle(env.DB);
@@ -258,5 +266,94 @@ describe("rate limit(DO 固定視窗)", () => {
     expect(res.status).toBe(429);
     const data = (await res.json()) as { error: { code: string } };
     expect(data.error.code).toBe("rate-limited");
+  });
+});
+
+describe("cron 結算(scheduled handler)", () => {
+  it("到期擂台自動結算:DO 緩衝票 flush → settleArenaQuest → 寫入名次", async () => {
+    // 建一個進行中的擂台:A、B approved,C pending
+    const questId = crypto.randomUUID();
+    const authorIds = [crypto.randomUUID(), crypto.randomUUID(), crypto.randomUUID()];
+    const voterIds = [crypto.randomUUID(), crypto.randomUUID(), crypto.randomUUID()];
+    await db.insert(users).values(
+      [...authorIds, ...voterIds].map((id) => ({
+        id,
+        email: null,
+        displayName: "測試人",
+        createdAt: NOW,
+      })),
+    );
+    await db.insert(quests).values({
+      id: questId,
+      creatorId: seeded.creatorId,
+      title: "結算測試擂台",
+      description: "-",
+      status: "active",
+      deadline: new Date(Date.now() + 3_600_000),
+      createdAt: NOW,
+    });
+    const [subA, subB, subC] = [crypto.randomUUID(), crypto.randomUUID(), crypto.randomUUID()];
+    await db.insert(submissions).values([
+      { id: subA!, questId, authorId: authorIds[0]!, content: "A", status: "approved", createdAt: NOW },
+      {
+        id: subB!,
+        questId,
+        authorId: authorIds[1]!,
+        content: "B",
+        status: "approved",
+        createdAt: new Date(NOW.getTime() + 60_000),
+      },
+      { id: subC!, questId, authorId: authorIds[2]!, content: "C", status: "pending", createdAt: NOW },
+    ]);
+
+    // subA 的 1 票走 API → 停在 QuestVotes DO 緩衝(不跑 alarm),驗證結算前的 flush
+    mockTurnstile(true);
+    const voteRes = await post(
+      `/quests/${questId}/votes`,
+      { submissionId: subA, turnstileToken: "ok" },
+      { ip: "10.0.2.1" },
+    );
+    expect(voteRes.status).toBe(201);
+
+    // subB 2 票、subC(pending)1 票直接進 D1;pending 的票結算時應被忽略
+    await db.insert(votes).values([
+      { id: crypto.randomUUID(), questId, submissionId: subB!, voterId: voterIds[0]!, createdAt: NOW },
+      { id: crypto.randomUUID(), questId, submissionId: subB!, voterId: voterIds[1]!, createdAt: NOW },
+      { id: crypto.randomUUID(), questId, submissionId: subC!, voterId: voterIds[2]!, createdAt: NOW },
+    ]);
+
+    // 讓擂台到期,執行 cron
+    await db.update(quests).set({ deadline: new Date(Date.now() - 1000) }).where(eq(quests.id, questId));
+    const controller = createScheduledController({ scheduledTime: new Date(), cron: "*/5 * * * *" });
+    const ctx = createExecutionContext();
+    worker.scheduled(controller, env, ctx);
+    await waitOnExecutionContext(ctx);
+
+    const quest = await db.select().from(quests).where(eq(quests.id, questId)).get();
+    expect(quest?.status).toBe("settled");
+    expect(quest?.settledAt).not.toBeNull();
+
+    const subs = await db.select().from(submissions).where(eq(submissions.questId, questId));
+    const byId = new Map(subs.map((s) => [s.id, s]));
+    expect(byId.get(subB!)).toMatchObject({ finalRank: 1, finalVotes: 2 });
+    // subA 的票原本只在 DO 緩衝裡 → flush 有生效才會是 1 票
+    expect(byId.get(subA!)).toMatchObject({ finalRank: 2, finalVotes: 1 });
+    expect(byId.get(subC!)).toMatchObject({ finalRank: null, finalVotes: null });
+
+    // GET 依名次回傳
+    const view = (await (await SELF.fetch(`https://api.local/quests/${questId}`)).json()) as {
+      quest: { status: string };
+      submissions: Array<{ id: string; votes: number; rank: number | null }>;
+    };
+    expect(view.quest.status).toBe("settled");
+    expect(view.submissions.map((s) => s.id)).toEqual([subB, subA]);
+    expect(view.submissions[0]).toMatchObject({ rank: 1, votes: 2 });
+
+    // 再跑一次 cron:冪等,不會重複結算(結果不變)
+    const ctx2 = createExecutionContext();
+    worker.scheduled(createScheduledController({ scheduledTime: new Date(), cron: "*/5 * * * *" }), env, ctx2);
+    await waitOnExecutionContext(ctx2);
+    const again = await db.select().from(quests).where(eq(quests.id, questId)).get();
+    expect(again?.settledAt?.getTime()).toBe(quest?.settledAt?.getTime());
   });
 });

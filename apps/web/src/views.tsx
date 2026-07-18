@@ -23,6 +23,8 @@ export interface QuestView {
     content: string;
     authorName: string;
     votes: number;
+    /** 結算後的名次;未結算為 null */
+    rank?: number | null;
     createdAt: string;
   }>;
 }
@@ -51,6 +53,8 @@ button.secondary{background:#fff;color:#5c3a21;border:1px solid #5c3a21}
 .entry-author{font-weight:700;font-size:.95rem}
 .entry-content{white-space:pre-wrap;margin:4px 0}
 .votes{color:#5c3a21;font-weight:700;white-space:nowrap}
+.rank{font-weight:700;color:#8a5a2b;white-space:nowrap}
+.winner .entry-author::after{content:" 🏆"}
 .quest-link{display:block;color:inherit;text-decoration:none}
 .quest-link h2{color:#5c3a21}
 .muted{color:#7a6f63}
@@ -143,7 +147,9 @@ export const QuestPage: FC<{
   err?: string;
 }> = ({ view, now, siteKey, ok, err }) => {
   const { quest, submissions } = view;
+  const settled = quest.status === "settled";
   const open = quest.status === "active" && new Date(quest.deadline).getTime() > now.getTime();
+  const hasWinner = settled && submissions.some((s) => s.rank === 1 && s.votes > 0);
 
   return (
     <Layout title={`${quest.title} — 任務酒館`} withTurnstile={open}>
@@ -160,13 +166,18 @@ export const QuestPage: FC<{
           <button type="button" class="secondary" id="copy-btn">
             複製題目
           </button>
+        ) : settled ? (
+          <p class="muted">
+            這個擂台已經結束,結果公布如下。
+            {hasWinner ? null : "這次沒有人投票,冠軍從缺。"}
+          </p>
         ) : (
-          <p class="muted">這個擂台已經結束,不能再參賽或投票。</p>
+          <p class="muted">這個擂台已截止,結果統計中,稍後再來看名次!</p>
         )}
       </div>
 
       <div class="card">
-        <h2>參賽作品({submissions.length})</h2>
+        <h2>{settled ? "結果公布" : `參賽作品(${submissions.length})`}</h2>
         {submissions.length === 0 ? (
           <p class="muted">還沒有作品,搶頭香!</p>
         ) : open ? (
@@ -185,15 +196,19 @@ export const QuestPage: FC<{
             <button type="submit">投下這一票</button>
           </form>
         ) : (
-          submissions.map((s) => (
-            <div class="entry">
-              <span class="entry-body">
-                <span class="entry-author">{s.authorName}</span>
-                <span class="entry-content">{s.content}</span>
-              </span>
-              <span class="votes">{s.votes} 票</span>
-            </div>
-          ))
+          submissions.map((s) => {
+            const isWinner = settled && s.rank === 1 && s.votes > 0;
+            return (
+              <div class={isWinner ? "entry winner" : "entry"}>
+                {settled && s.rank != null ? <span class="rank">第 {s.rank} 名</span> : null}
+                <span class="entry-body">
+                  <span class="entry-author">{s.authorName}</span>
+                  <span class="entry-content">{s.content}</span>
+                </span>
+                <span class="votes">{s.votes} 票</span>
+              </div>
+            );
+          })
         )}
       </div>
 

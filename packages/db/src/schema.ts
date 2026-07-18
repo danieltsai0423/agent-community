@@ -21,6 +21,8 @@ export const quests = sqliteTable("quests", {
     .notNull()
     .default("active"),
   deadline: integer("deadline", { mode: "timestamp" }).notNull(),
+  // 結算時間;null = 尚未結算
+  settledAt: integer("settled_at", { mode: "timestamp" }),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
 });
 
@@ -36,6 +38,9 @@ export const submissions = sqliteTable("submissions", {
   status: text("status", { enum: ["pending", "approved", "flagged"] })
     .notNull()
     .default("pending"),
+  // 結算時寫入,一經發布不可變;null = 尚未結算
+  finalRank: integer("final_rank"),
+  finalVotes: integer("final_votes"),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
 });
 

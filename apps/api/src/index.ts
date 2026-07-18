@@ -14,6 +14,7 @@ import { RateLimiter } from "./do/rate-limiter.js";
 import type { Env } from "./env.js";
 import { apiError } from "./errors.js";
 import { ensureUser } from "./identity.js";
+import { settleDueQuests } from "./settlement-job.js";
 import { verifyTurnstile } from "./turnstile.js";
 
 const app = new Hono<{ Bindings: Env }>();
@@ -79,6 +80,8 @@ app.get("/quests/:id", async (c) => {
       content: submissions.content,
       authorName: users.displayName,
       createdAt: submissions.createdAt,
+      finalRank: submissions.finalRank,
+      finalVotes: submissions.finalVotes,
       votes: count(votes.id),
     })
     .from(submissions)
@@ -87,8 +90,18 @@ app.get("/quests/:id", async (c) => {
     .where(and(eq(submissions.questId, questId), eq(submissions.status, "approved")))
     .groupBy(submissions.id);
 
-  // 票數降冪、同票先提交者在前(與結算排序一致)
-  rows.sort((a, b) => b.votes - a.votes || a.createdAt.getTime() - b.createdAt.getTime());
+  const settled = quest.status === "settled";
+  if (settled) {
+    // 結果已發布:依名次升冪,同名次先提交者在前
+    rows.sort(
+      (a, b) =>
+        (a.finalRank ?? Number.MAX_SAFE_INTEGER) - (b.finalRank ?? Number.MAX_SAFE_INTEGER) ||
+        a.createdAt.getTime() - b.createdAt.getTime(),
+    );
+  } else {
+    // 進行中:票數降冪、同票先提交者在前(與結算排序一致)
+    rows.sort((a, b) => b.votes - a.votes || a.createdAt.getTime() - b.createdAt.getTime());
+  }
 
   return c.json({
     quest: {
@@ -103,7 +116,8 @@ app.get("/quests/:id", async (c) => {
       id: r.id,
       content: r.content,
       authorName: r.authorName,
-      votes: r.votes,
+      votes: settled ? (r.finalVotes ?? 0) : r.votes,
+      rank: r.finalRank,
       createdAt: r.createdAt.toISOString(),
     })),
   });
@@ -175,5 +189,10 @@ app.post("/quests/:id/votes", async (c) => {
   return c.json({ ok: true }, 201);
 });
 
-export default app;
+export default {
+  fetch: app.fetch,
+  scheduled(controller, env, ctx) {
+    ctx.waitUntil(settleDueQuests(env, new Date(controller.scheduledTime)));
+  },
+} satisfies ExportedHandler<Env>;
 export { QuestVotes, RateLimiter };

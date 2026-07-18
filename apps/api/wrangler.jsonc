@@ -3,6 +3,8 @@
   "name": "tavern-api",
   "main": "src/index.ts",
   "compatibility_date": "2026-06-01",
+  // 截止自動結算:每 5 分鐘掃一次到期擂台
+  "triggers": { "crons": ["*/5 * * * *"] },
   "d1_databases": [
     {
       "binding": "DB",

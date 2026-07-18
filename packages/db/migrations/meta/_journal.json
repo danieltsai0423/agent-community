@@ -8,6 +8,13 @@
       "when": 1784308858221,
       "tag": "0000_shiny_monster_badoon",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1784361699348,
+      "tag": "0001_famous_giant_man",
+      "breakpoints": true
     }
   ]
 }

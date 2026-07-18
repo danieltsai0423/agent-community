@@ -45,6 +45,12 @@ export class QuestVotes extends DurableObject<Env> {
     return "accepted";
   }
 
+  /** 結算前呼叫:立刻把緩衝的票寫進 D1,不等 alarm。 */
+  async flush(): Promise<void> {
+    await this.alarm();
+    await this.ctx.storage.deleteAlarm();
+  }
+
   async alarm(): Promise<void> {
     const buffer = (await this.ctx.storage.get<BufferedVote[]>("buffer")) ?? [];
     if (buffer.length === 0) return;
