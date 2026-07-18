@@ -5,7 +5,7 @@ import {
   checkVoteAllowed,
 } from "@tavern/core";
 import { quests, submissions, users, votes } from "@tavern/db";
-import { and, count, eq } from "drizzle-orm";
+import { and, asc, count, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/d1";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
@@ -36,6 +36,35 @@ app.use("/quests/:id/*", async (c, next) => {
 });
 
 app.get("/health", (c) => c.json({ ok: true, service: "api" }));
+
+app.get("/quests", async (c) => {
+  const db = drizzle(c.env.DB);
+  const rows = await db
+    .select({
+      id: quests.id,
+      title: quests.title,
+      deadline: quests.deadline,
+      submissionCount: count(submissions.id),
+    })
+    .from(quests)
+    .leftJoin(
+      submissions,
+      and(eq(submissions.questId, quests.id), eq(submissions.status, "approved")),
+    )
+    .where(eq(quests.status, "active"))
+    .groupBy(quests.id)
+    .orderBy(asc(quests.deadline))
+    .limit(20);
+
+  return c.json({
+    quests: rows.map((r) => ({
+      id: r.id,
+      title: r.title,
+      deadline: r.deadline.toISOString(),
+      submissionCount: r.submissionCount,
+    })),
+  });
+});
 
 app.get("/quests/:id", async (c) => {
   const questId = c.req.param("id");

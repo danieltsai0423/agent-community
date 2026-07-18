@@ -1,29 +1,8 @@
+import { API_ERROR_MESSAGES, type ApiErrorCode } from "@tavern/core";
 import type { Context } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 
-export type ErrorCode =
-  | "invalid-request"
-  | "turnstile-failed"
-  | "quest-not-found"
-  | "quest-not-active"
-  | "past-deadline"
-  | "submission-not-votable"
-  | "creator-cannot-vote"
-  | "already-voted"
-  | "rate-limited";
-
-/** code 給機器判斷(英文),message 直接顯示給使用者(繁中、無技術術語)。 */
-const MESSAGES: Record<ErrorCode, string> = {
-  "invalid-request": "輸入格式不正確,請檢查後再試一次",
-  "turnstile-failed": "安全驗證未通過,請重新整理頁面再試一次",
-  "quest-not-found": "找不到這個擂台",
-  "quest-not-active": "這個擂台已經結束了",
-  "past-deadline": "這個擂台已過截止時間",
-  "submission-not-votable": "這件作品目前不能投票",
-  "creator-cannot-vote": "發起人不能在自己的擂台投票",
-  "already-voted": "你已經投過票了,一人一票喔",
-  "rate-limited": "操作太頻繁,請稍等一下再試",
-};
+export type ErrorCode = ApiErrorCode;
 
 const STATUS: Record<ErrorCode, ContentfulStatusCode> = {
   "invalid-request": 400,
@@ -38,5 +17,5 @@ const STATUS: Record<ErrorCode, ContentfulStatusCode> = {
 };
 
 export function apiError(c: Context, code: ErrorCode) {
-  return c.json({ error: { code, message: MESSAGES[code] } }, STATUS[code]);
+  return c.json({ error: { code, message: API_ERROR_MESSAGES[code] } }, STATUS[code]);
 }

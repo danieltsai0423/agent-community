@@ -229,6 +229,24 @@ describe("POST /quests/:id/votes", () => {
   });
 });
 
+describe("GET /quests", () => {
+  it("列出 active 擂台(截止近的在前、含 approved 作品數),不含已結算", async () => {
+    const res = await SELF.fetch("https://api.local/quests");
+    expect(res.status).toBe(200);
+    const data = (await res.json()) as {
+      quests: Array<{ id: string; submissionCount: number }>;
+    };
+    const ids = data.quests.map((q) => q.id);
+    expect(ids).toContain(seeded.questId);
+    expect(ids).toContain(expiredQuestId);
+    expect(ids).not.toContain(settledQuestId);
+    // deadline 升冪:已過期的排最前
+    expect(ids.indexOf(expiredQuestId)).toBeLessThan(ids.indexOf(seeded.questId));
+    // 前面的提交測試已新增第 3 件作品
+    expect(data.quests.find((q) => q.id === seeded.questId)?.submissionCount).toBe(3);
+  });
+});
+
 describe("rate limit(DO 固定視窗)", () => {
   it("同 IP 一分鐘第 21 次寫入 → 429 rate-limited", async () => {
     const ip = "10.9.9.9";
