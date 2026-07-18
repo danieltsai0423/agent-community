@@ -132,6 +132,7 @@ if(btn){btn.addEventListener("click",function(){
 
 export const FLASH_OK: Record<string, string> = {
   submitted: "作品已送出,參賽成功!",
+  "submitted-pending": "作品已送出!內容審核通過後就會公開。",
   voted: "投票成功!",
 };
 

@@ -162,7 +162,7 @@ describe("POST 轉發(web → API)", () => {
         ip: req.headers.get("cf-connecting-ip"),
       };
       return Response.json(
-        { id: "new-sub" },
+        { id: "new-sub", status: "approved" },
         { status: 201, headers: { "set-cookie": "tavern_uid=abc; Path=/" } },
       );
     });
@@ -195,6 +195,25 @@ describe("POST 轉發(web → API)", () => {
       cookie: "tavern_uid=old",
       ip: "1.2.3.4",
     });
+  });
+
+  it("提交進審核(status 非 approved)→ 303 ?ok=submitted-pending,flash 顯示審核中", async () => {
+    const env = mockEnv(() => Response.json({ id: "new-sub", status: "pending" }, { status: 201 }));
+    const res = await app.request(
+      "/quests/q1/submissions",
+      {
+        method: "POST",
+        headers: { "content-type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ content: "內容", "cf-turnstile-response": "t" }),
+      },
+      env,
+    );
+    expect(res.status).toBe(303);
+    expect(res.headers.get("location")).toBe("/quests/q1?ok=submitted-pending");
+
+    const viewEnv = mockEnv(() => Response.json(questView()));
+    const html = await (await app.request("/quests/q1?ok=submitted-pending", {}, viewEnv)).text();
+    expect(html).toContain("內容審核通過後就會公開");
   });
 
   it("投票失敗:API 409 already-voted → 303 ?err=already-voted", async () => {

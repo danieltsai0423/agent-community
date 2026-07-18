@@ -11,6 +11,9 @@ export default defineConfig(async () => {
     plugins: [
       cloudflareTest({
         wrangler: { configPath: "./wrangler.jsonc" },
+        // AI binding 預設會連遠端真資源(非確定性、CI 無憑證)——測試一律關掉,
+        // 走 fail-closed(pending);safe/unsafe 路徑用 worker.fetch 注入假 AI 測
+        remoteBindings: false,
         miniflare: {
           bindings: { TEST_MIGRATIONS: migrations },
         },

@@ -86,7 +86,17 @@ app.post("/quests/:id/submissions", async (c) => {
     ...(displayName ? { displayName } : {}),
     turnstileToken: String(form.get("cf-turnstile-response") ?? ""),
   });
-  return redirectBack(c, questId, apiRes, "submitted");
+  // 審核結果決定 flash:approved 立即公開,其餘顯示「審核中」
+  let okFlag = "submitted";
+  if (apiRes.ok) {
+    try {
+      const data = (await apiRes.clone().json()) as { status?: string };
+      if (data.status !== "approved") okFlag = "submitted-pending";
+    } catch {
+      // 讀不到就用預設文案
+    }
+  }
+  return redirectBack(c, questId, apiRes, okFlag);
 });
 
 app.post("/quests/:id/votes", async (c) => {

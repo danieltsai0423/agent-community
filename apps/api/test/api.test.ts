@@ -129,7 +129,7 @@ describe("POST /quests/:id/submissions", () => {
     expect(data.error.code).toBe("turnstile-failed");
   });
 
-  it("成功提交 → 201、發 tavern_uid cookie、GET 看得到新作品", async () => {
+  it("成功提交 → 201 回 status、發 cookie;無 AI binding → fail-closed 進 pending 不公開", async () => {
     mockTurnstile(true);
     const res = await post(
       `/quests/${seeded.questId}/submissions`,
@@ -137,14 +137,13 @@ describe("POST /quests/:id/submissions", () => {
       { ip: "10.0.0.3" },
     );
     expect(res.status).toBe(201);
+    const data = (await res.json()) as { id: string; status: string };
+    expect(data.status).toBe("pending"); // 測試環境沒有 AI binding → unavailable → pending
     expect(uidCookie(res)).toMatch(/^tavern_uid=/);
 
     const view = await SELF.fetch(`https://api.local/quests/${seeded.questId}`);
-    const data = (await view.json()) as {
-      submissions: Array<{ content: string; authorName: string }>;
-    };
-    expect(data.submissions).toHaveLength(3);
-    expect(data.submissions.some((s) => s.authorName === "測試詩人")).toBe(true);
+    const viewData = (await view.json()) as { submissions: unknown[] };
+    expect(viewData.submissions).toHaveLength(2); // pending 不公開
   });
 
   it("已過截止 → 409 past-deadline", async () => {
@@ -250,8 +249,8 @@ describe("GET /quests", () => {
     expect(ids).not.toContain(settledQuestId);
     // deadline 升冪:已過期的排最前
     expect(ids.indexOf(expiredQuestId)).toBeLessThan(ids.indexOf(seeded.questId));
-    // 前面的提交測試已新增第 3 件作品
-    expect(data.quests.find((q) => q.id === seeded.questId)?.submissionCount).toBe(3);
+    // 前面的提交測試新增的作品進了 pending,不計入 approved 數
+    expect(data.quests.find((q) => q.id === seeded.questId)?.submissionCount).toBe(2);
   });
 });
 
@@ -355,5 +354,77 @@ describe("cron 結算(scheduled handler)", () => {
     await waitOnExecutionContext(ctx2);
     const again = await db.select().from(quests).where(eq(quests.id, questId)).get();
     expect(again?.settledAt?.getTime()).toBe(quest?.settledAt?.getTime());
+  });
+});
+
+describe("審核管線(Workers AI moderation)", () => {
+  const modQuestId = crypto.randomUUID();
+
+  beforeAll(async () => {
+    await db.insert(quests).values({
+      id: modQuestId,
+      creatorId: seeded.creatorId,
+      title: "審核測試擂台",
+      description: "-",
+      status: "active",
+      deadline: new Date(Date.now() + 3_600_000),
+      createdAt: NOW,
+    });
+  });
+
+  function envWithAi(run: () => Promise<unknown>): Cloudflare.Env {
+    return {
+      ...{
+        DB: env.DB,
+        TEST_MIGRATIONS: env.TEST_MIGRATIONS,
+        RATE_LIMITER: env.RATE_LIMITER,
+        QUEST_VOTES: env.QUEST_VOTES,
+        TURNSTILE_SECRET_KEY: env.TURNSTILE_SECRET_KEY,
+      },
+      AI: { run } as unknown as Ai,
+    };
+  }
+
+  async function submitWith(run: () => Promise<unknown>, ip: string) {
+    mockTurnstile(true);
+    const req = new Request(`https://api.local/quests/${modQuestId}/submissions`, {
+      method: "POST",
+      headers: { "content-type": "application/json", "cf-connecting-ip": ip },
+      body: JSON.stringify({ content: "審核測試內容", turnstileToken: "ok" }),
+    });
+    const ctx = createExecutionContext();
+    const res = await worker.fetch(req, envWithAi(run), ctx);
+    await waitOnExecutionContext(ctx);
+    return (await res.json()) as { id: string; status: string };
+  }
+
+  it("AI 判 safe → approved,立即公開", async () => {
+    const data = await submitWith(async () => ({ response: "safe" }), "10.0.3.1");
+    expect(data.status).toBe("approved");
+    const view = (await (await SELF.fetch(`https://api.local/quests/${modQuestId}`)).json()) as {
+      submissions: Array<{ id: string }>;
+    };
+    expect(view.submissions.map((s) => s.id)).toContain(data.id);
+  });
+
+  it("AI 判 unsafe → flagged,不公開", async () => {
+    const data = await submitWith(async () => ({ response: "unsafe\nS1" }), "10.0.3.2");
+    expect(data.status).toBe("flagged");
+    const view = (await (await SELF.fetch(`https://api.local/quests/${modQuestId}`)).json()) as {
+      submissions: Array<{ id: string }>;
+    };
+    expect(view.submissions.map((s) => s.id)).not.toContain(data.id);
+  });
+
+  it("AI 呼叫失敗 → pending,不公開(fail-closed)", async () => {
+    const data = await submitWith(async () => {
+      throw new Error("AI down");
+    }, "10.0.3.3");
+    expect(data.status).toBe("pending");
+  });
+
+  it("AI 輸出讀不懂 → pending", async () => {
+    const data = await submitWith(async () => ({ response: "???" }), "10.0.3.4");
+    expect(data.status).toBe("pending");
   });
 });

@@ -3,6 +3,7 @@ import {
   VoteRequestSchema,
   checkSubmissionAllowed,
   checkVoteAllowed,
+  decideSubmissionStatus,
 } from "@tavern/core";
 import { quests, submissions, users, votes } from "@tavern/db";
 import { and, asc, count, eq } from "drizzle-orm";
@@ -14,6 +15,7 @@ import { RateLimiter } from "./do/rate-limiter.js";
 import type { Env } from "./env.js";
 import { apiError } from "./errors.js";
 import { ensureUser } from "./identity.js";
+import { moderateContent } from "./moderation.js";
 import { settleDueQuests } from "./settlement-job.js";
 import { verifyTurnstile } from "./turnstile.js";
 
@@ -140,6 +142,10 @@ app.post("/quests/:id/submissions", async (c) => {
   const check = checkSubmissionAllowed({ quest, now: new Date() });
   if (!check.allowed) return apiError(c, check.reason);
 
+  // 審核管線:safe → 公開;unsafe → flagged;AI 失敗 → pending(fail-closed)
+  const outcome = await moderateContent(c.env.AI, parsed.data.content);
+  const status = decideSubmissionStatus(outcome);
+
   const authorId = await ensureUser(c, db, parsed.data.displayName);
   const id = crypto.randomUUID();
   await db.insert(submissions).values({
@@ -147,11 +153,10 @@ app.post("/quests/:id/submissions", async (c) => {
     questId,
     authorId,
     content: parsed.data.content,
-    // P0 任務 4 直接公開;任務 7 改為 pending + Workers AI 審核後翻轉
-    status: "approved",
+    status,
     createdAt: new Date(),
   });
-  return c.json({ id }, 201);
+  return c.json({ id, status }, 201);
 });
 
 app.post("/quests/:id/votes", async (c) => {

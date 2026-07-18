@@ -5,6 +5,8 @@
   "compatibility_date": "2026-06-01",
   // 截止自動結算:每 5 分鐘掃一次到期擂台
   "triggers": { "crons": ["*/5 * * * *"] },
+  // Workers AI:提交內容審核(Llama Guard)
+  "ai": { "binding": "AI" },
   "d1_databases": [
     {
       "binding": "DB",
