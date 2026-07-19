@@ -5,7 +5,7 @@
   "compatibility_date": "2026-06-01",
   "services": [{ "binding": "API", "service": "tavern-api" }],
   "vars": {
-    // Turnstile 官方測試 sitekey(永遠通過)。上線前換正式 sitekey(與 api 的 secret 成對)
-    "TURNSTILE_SITE_KEY": "1x00000000000000000000AA"
+    // 正式 Turnstile sitekey(2026-07-19,公開值;secret 在 tavern-api 的 wrangler secret)
+    "TURNSTILE_SITE_KEY": "0x4AAAAAAD43retpnc1oA3bU"
   }
 }

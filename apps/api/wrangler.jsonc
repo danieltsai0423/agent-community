@@ -23,8 +23,7 @@
   },
   // 免費層只能用 SQLite-backed DO(new_sqlite_classes)
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["RateLimiter", "QuestVotes"] }],
-  "vars": {
-    // Turnstile 官方測試 secret(永遠通過)。上線前換正式 key:wrangler secret put TURNSTILE_SECRET_KEY
-    "TURNSTILE_SECRET_KEY": "1x0000000000000000000000000000000AA"
-  }
+  // TURNSTILE_SECRET_KEY 是 wrangler secret(2026-07-19 起為正式 key,不進 repo);
+  // 本地 dev 需要時放 .dev.vars,測試由 vitest.config.ts 注入假值
+  "vars": {}
 }

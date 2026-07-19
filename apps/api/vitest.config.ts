@@ -15,7 +15,8 @@ export default defineConfig(async () => {
         // 走 fail-closed(pending);safe/unsafe 路徑用 worker.fetch 注入假 AI 測
         remoteBindings: false,
         miniflare: {
-          bindings: { TEST_MIGRATIONS: migrations },
+          // TURNSTILE_SECRET_KEY 正式值是 wrangler secret;測試裡 siteverify 被 stub,值不重要
+          bindings: { TEST_MIGRATIONS: migrations, TURNSTILE_SECRET_KEY: "test-secret" },
         },
       }),
     ],
